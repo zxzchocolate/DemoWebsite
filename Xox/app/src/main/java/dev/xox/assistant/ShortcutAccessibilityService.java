@@ -67,7 +67,7 @@ public class ShortcutAccessibilityService extends AccessibilityService {
                 return false;
             }
 
-            if (now - lastLaunch >= LAUNCH_COOLDOWN_MS) {
+            if (lastLaunch == 0 || now - lastLaunch >= LAUNCH_COOLDOWN_MS) {
                 lastLaunch = now;
                 Intent intent = new Intent(this, AssistantActivity.class);
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
