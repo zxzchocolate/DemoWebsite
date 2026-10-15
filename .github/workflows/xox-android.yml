@@ -26,6 +26,21 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
+      - name: Verify accessibility description resource
+        working-directory: Xox
+        shell: bash
+        run: |
+          set -euo pipefail
+          CONFIG="app/src/main/res/xml/accessibility_service_config.xml"
+          STRINGS="app/src/main/res/values/strings.xml"
+          echo "Checking accessibility config at commit: $GITHUB_SHA"
+          cat "$CONFIG"
+          grep -Fq 'android:description="@string/xox_accessibility_description"' "$CONFIG"
+          grep -Fq '<string name="xox_accessibility_description">' "$STRINGS"
+          if grep -Fq 'android:description="Lets Xox detect' "$CONFIG"; then
+            echo "ERROR: description text must be a string resource reference, not a literal."
+            exit 1
+          fi
       - name: Build debug APK
         working-directory: Xox
         run: gradle --no-daemon assembleDebug
