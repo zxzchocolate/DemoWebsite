@@ -25,7 +25,7 @@ public class ShortcutAccessibilityService extends AccessibilityService {
     }
 
     @Override
-    protected void onServiceConnected() {
+    public void onServiceConnected() {
         super.onServiceConnected();
         resetSequence();
     }
