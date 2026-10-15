@@ -3,4 +3,4 @@
     android:accessibilityFeedbackType="feedbackGeneric"
     android:notificationTimeout="100"
     android:canRequestFilterKeyEvents="true"
-    android:description="Lets Xox detect your chosen volume-key shortcut. It does not read screen content." />
+    android:description="@string/xox_accessibility_description" />
