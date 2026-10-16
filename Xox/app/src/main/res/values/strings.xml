@@ -1,3 +1,3 @@
 <resources>
-    <string name="xox_accessibility_description">Lets Xox detect your chosen volume-key shortcut. It does not read screen content.</string>
+    <string name="app_name">Xox</string>
 </resources>
