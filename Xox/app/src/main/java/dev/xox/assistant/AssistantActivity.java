@@ -7,6 +7,24 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.LinearGradient;
+import android.graphics.Shader;
+import android.animation.ValueAnimator;
+import android.content.pm.ApplicationInfo;
+import android.content.Intent;
+import android.net.Uri;
+import android.provider.Settings;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import android.widget.Filter;
+import android.widget.Filterable;
+import android.widget.BaseAdapter;
+import android.widget.ListView;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
@@ -54,6 +72,11 @@ public class AssistantActivity extends Activity {
     private LocationManager locationManager;
     private LocationListener locationListener;
     private ScrollView dashboardScroll;
+    private LinearLayout appsContainer;
+    private EditText appSearch;
+    private final ArrayList<ApplicationInfo> allApps = new ArrayList<>();
+    private final ArrayList<ApplicationInfo> visibleApps = new ArrayList<>();
+    private FlowingGradientView flowingBackground;
 
     private int dp(float value) {
         return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
@@ -140,12 +163,17 @@ public class AssistantActivity extends Activity {
     }
 
     private void buildDashboard() {
+        FrameLayout frame = new FrameLayout(this);
+        flowingBackground = new FlowingGradientView(this);
+        frame.addView(flowingBackground, new FrameLayout.LayoutParams(-1, -1));
         dashboardScroll = new ScrollView(this);
         dashboardScroll.setFillViewport(true);
         dashboardScroll.setClipToPadding(false);
         LinearLayout root = column();
         root.setPadding(dp(20), dp(24), dp(20), dp(30));
-        root.setBackgroundColor(BG);
+        root.setBackgroundColor(0x00000000);
+        dashboardScroll.setBackgroundColor(0x00000000);
+        frame.addView(dashboardScroll, new FrameLayout.LayoutParams(-1, -1));
         dashboardScroll.addView(root);
 
         LinearLayout top = new LinearLayout(this);
@@ -237,17 +265,160 @@ public class AssistantActivity extends Activity {
         });
         root.addView(notes, gapParams());
 
-        TextView footer = text("Weather by Open-Meteo  ·  Location lookup by Android  ·  Notes stay on this device", 11, false, MUTED);
+        LinearLayout apps = card();
+        apps.addView(text("APP LIBRARY", 12, true, ACCENT));
+        TextView appsHelp = text("Installed apps, including system and disabled packages. Some system components cannot be opened directly.", 13, false, MUTED);
+        LinearLayout.LayoutParams ahp = new LinearLayout.LayoutParams(-1, -2);
+        ahp.topMargin = dp(7);
+        apps.addView(appsHelp, ahp);
+        appSearch = edit("Filter apps by name or package", false);
+        LinearLayout.LayoutParams asp = new LinearLayout.LayoutParams(-1, dp(50));
+        asp.topMargin = dp(12);
+        apps.addView(appSearch, asp);
+        appsContainer = column();
+        LinearLayout.LayoutParams acp = new LinearLayout.LayoutParams(-1, -2);
+        acp.topMargin = dp(10);
+        apps.addView(appsContainer, acp);
+        Button reloadApps = button("Refresh app list");
+        LinearLayout.LayoutParams rap = new LinearLayout.LayoutParams(-1, dp(46));
+        rap.topMargin = dp(10);
+        apps.addView(reloadApps, rap);
+        reloadApps.setOnClickListener(v -> populateApps(""));
+        appSearch.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { populateApps(s.toString()); }
+            @Override public void afterTextChanged(android.text.Editable e) {}
+        });
+        root.addView(apps, gapParams());
+        populateApps("");
+
+        TextView footer = text("Weather by Open-Meteo  ·  Notes stay on this device", 11, false, MUTED);
         footer.setGravity(Gravity.CENTER);
         footer.setLineSpacing(dp(3), 1f);
         LinearLayout.LayoutParams fp = new LinearLayout.LayoutParams(-1, -2);
         fp.topMargin = dp(20);
         root.addView(footer, fp);
-        setContentView(dashboardScroll);
+        setContentView(frame);
 
         String savedCity = prefs.getString("city", "");
         if (!savedCity.isEmpty()) {
             weatherResult.setText("Ready to check " + savedCity);
+        }
+    }
+
+
+    private void populateApps(String query) {
+        if (appsContainer == null) return;
+        appsContainer.removeAllViews();
+        allApps.clear();
+        try {
+            int flags = 0;
+            if (Build.VERSION.SDK_INT >= 24) flags |= PackageManager.MATCH_DISABLED_COMPONENTS;
+            List<ApplicationInfo> installed = getPackageManager().getInstalledApplications(flags);
+            allApps.addAll(installed);
+            Collections.sort(allApps, (a, b) -> {
+                String an = String.valueOf(getPackageManager().getApplicationLabel(a));
+                String bn = String.valueOf(getPackageManager().getApplicationLabel(b));
+                return an.compareToIgnoreCase(bn);
+            });
+            String needle = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+            int shown = 0;
+            for (ApplicationInfo info : allApps) {
+                String label = String.valueOf(getPackageManager().getApplicationLabel(info));
+                String pkg = info.packageName == null ? "" : info.packageName;
+                if (!needle.isEmpty() && !label.toLowerCase(Locale.ROOT).contains(needle)
+                        && !pkg.toLowerCase(Locale.ROOT).contains(needle)) continue;
+                boolean system = (info.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
+                boolean enabled = info.enabled;
+                LinearLayout row = new LinearLayout(this);
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                row.setGravity(Gravity.CENTER_VERTICAL);
+                row.setPadding(dp(10), dp(10), dp(10), dp(10));
+                row.setBackground(shape(0xFF202633, 0xFF343D4D));
+                LinearLayout infoCol = column();
+                TextView appName = text(label, 14, true, TEXT);
+                TextView details = text(pkg + (system ? " · system" : "") + (enabled ? "" : " · disabled"), 10, false, MUTED);
+                infoCol.addView(appName);
+                LinearLayout.LayoutParams detp = new LinearLayout.LayoutParams(-1, -2);
+                detp.topMargin = dp(4);
+                infoCol.addView(details, detp);
+                row.addView(infoCol, new LinearLayout.LayoutParams(0, -2, 1));
+                TextView action = text(getPackageManager().getLaunchIntentForPackage(pkg) == null ? "INFO" : "OPEN", 10, true, ACCENT);
+                row.addView(action);
+                row.setOnClickListener(v -> openAppOrInfo(info));
+                LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, -2);
+                rp.bottomMargin = dp(6);
+                appsContainer.addView(row, rp);
+                shown++;
+            }
+            if (shown == 0) appsContainer.addView(text("No matching apps.", 13, false, MUTED));
+            else appsContainer.addView(text(shown + " packages shown", 11, false, MUTED));
+        } catch (Exception e) {
+            appsContainer.addView(text("Couldn't read installed apps.", 13, false, MUTED));
+        }
+    }
+
+    private void openAppOrInfo(ApplicationInfo info) {
+        try {
+            Intent launch = getPackageManager().getLaunchIntentForPackage(info.packageName);
+            if (launch != null && info.enabled) {
+                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(launch);
+            } else {
+                Intent details = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.parse("package:" + info.packageName));
+                startActivity(details);
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "Android does not allow this component to be opened directly.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private final class FlowingGradientView extends View {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private ValueAnimator animator;
+        private float phase = 0f;
+
+        FlowingGradientView(Context context) {
+            super(context);
+            setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+        }
+
+        @Override protected void onAttachedToWindow() {
+            super.onAttachedToWindow();
+            animator = ValueAnimator.ofFloat(0f, 1f);
+            animator.setDuration(18000L);
+            animator.setRepeatCount(ValueAnimator.INFINITE);
+            animator.setRepeatMode(ValueAnimator.REVERSE);
+            animator.addUpdateListener(a -> {
+                phase = (Float) a.getAnimatedValue();
+                invalidate();
+            });
+            animator.start();
+        }
+
+        @Override protected void onDetachedFromWindow() {
+            if (animator != null) {
+                animator.cancel();
+                animator = null;
+            }
+            super.onDetachedFromWindow();
+        }
+
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float w = getWidth();
+            float h = getHeight();
+            if (w <= 0 || h <= 0) return;
+            float dx = (float) Math.sin(phase * Math.PI * 2) * w * 0.45f;
+            float dy = (float) Math.cos(phase * Math.PI * 2) * h * 0.28f;
+            LinearGradient gradient = new LinearGradient(
+                    dx, dy, w - dx * 0.35f, h - dy,
+                    new int[] { 0xFF111B35, 0xFF33245B, 0xFF174E59, 0xFF10131E, 0xFF111B35 },
+                    null, Shader.TileMode.CLAMP);
+            paint.setShader(gradient);
+            canvas.drawRect(0, 0, w, h, paint);
+            paint.setShader(null);
         }
     }
 
