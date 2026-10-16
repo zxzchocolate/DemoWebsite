@@ -1,32 +1,20 @@
 # Xox
 
-Xox is an Android 8.0+ assistant-launcher prototype, initially targeted at Android 8.1 / MIUI on the Redmi 5. It requires no root.
+Xox is a minimal Android 8.0+ digital-assistant prototype for compatible Android builds, including testing on Android 8.1 / MIUI.
 
-## Features in this prototype
+## What it does
 
-- Assistant activity registered for `android.intent.action.ASSIST` so it can be offered as an assist app on compatible Android builds.
-- Lock-screen display flags (`showWhenLocked` / `turnScreenOn`) without dismissing the secure keyguard.
-- Optional volume-key sequence shortcut through an explicitly enabled Accessibility service.
-- GitHub Actions workflow to compile a debug APK and upload it as a workflow artifact.
+- Registers an Android `VoiceInteractionService` so compatible phones can offer Xox as the default digital assistant.
+- Shows a simple Xox panel when the system invokes the assistant session.
+- Keeps a normal launcher activity.
+- Does not declare or use an Accessibility Service, intercept volume keys, request assist data, or listen to the microphone.
 
-## Important limitations
+## Set Xox as assistant
 
-- Home-button assistant activation depends on the ROM exposing Xox in its Assist app picker. Some MIUI versions may only list apps with a full VoiceInteractionService, so this prototype may not appear there.
-- Android accessibility key filtering is device/ROM-dependent. Volume-key sequences may not be delivered reliably, and other apps/system functions can consume keys first.
-- A normal app cannot bypass a PIN/pattern or unlock protected apps. `showWhenLocked` only allows Xox's own activity to appear over the lock screen.
-- This is a source prototype; the APK must be built and tested on the target phone. No APK is checked in.
+Open **Settings → Apps → Default apps → Digital assistant app** (the wording varies by Android/MIUI version) and choose Xox if it appears.
+
+Some MIUI versions do not expose third-party assistants in the picker or may restrict assistant gestures. Xox cannot force itself to become the default. This is only a minimal assistant shell, not a voice-recognition or AI assistant. Android may still require the PIN/pattern to access protected parts of the phone.
 
 ## Build with GitHub Actions
 
-The project is in the `Xox/` folder of this repository. Pushes to the default branch should trigger **Build Xox APK**. Open **Actions**, select the workflow run, and download the `Xox-debug-apk` artifact when it finishes.
-
-## Enable the volume shortcut
-
-1. Open Xox and tap **Configure shortcut**.
-2. Choose the key sequence.
-3. Tap **Open Settings**, find Xox under downloaded/installed accessibility services, and enable it.
-4. Lock the phone and test the sequence. If MIUI does not pass key events to accessibility services while locked, that shortcut won't work on that firmware.
-
-## Try Home assistant activation
-
-Open **Settings → Apps → Default apps** (or **Assist & voice input**, depending on MIUI) and look for Assist app. If Xox appears, select it and test the Home-button assistant gesture.
+The project is in the `Xox/` folder of this repository. Open **Actions**, select the latest **Build Xox APK** run, and download the `Xox-debug-apk` artifact when it finishes.
